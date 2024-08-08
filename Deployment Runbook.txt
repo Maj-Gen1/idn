@@ -1,0 +1,40 @@
+Deployment Runbook
+1. Proxy
+  1. Open file /insight/volume/gateway/conf/11-listen-frontend-requests-rest-serviceQuery-10007.cfg
+  2. Under section # ACL - Allowed Incoming Path: add - acl acl-path-iap-idn path /request/idn/
+  3. Under section # Backend Endpoint: add - use_backend iap-request-other-10030 if acl-path-iap-idn
+  4. Under section ## iNSight Backends other ## : add - 
+      ## iNSight Backends other ##
+      backend iap-request-other-10025
+        option abortonclose
+        option http-server-close
+        # Load Balancing Configuration
+        balance roundrobin
+        # Set Listener Path
+        http-request set-path /request/idn/
+        # Server Endpoint
+        default-server check maxconn 10000 weight 1 ssl ca-file svdt6pagapp01.pem inter 4s fall 6 rise 2 verify none
+        server iap-request-other-1 10.14.14.161:10030
+        server iap-request-other-2 10.14.14.162:10030
+        server iap-request-other-3 10.14.14.163:10030
+        server iap-request-other-4 10.14.14.164:10030
+        server iap-request-other-5 10.14.14.165:10030
+        server iap-request-other-6 10.14.14.166:10030
+        server iap-request-other-7 10.14.14.167:10030
+  5. Restart the proxy: docker-spvr restart gateway
+  6. Repeat the above steps for all the proxies editing only the host ips for prod i.e 10.14.7 instead of 10.14.14
+
+2. Application
+  1. Events
+    a. On the import export screen - Export these 2 events from UAT and import on prod; iAP IDN Initiate Root V1.0 and iAP IDN Service V1.0
+    b. On the service provider screen - create the IDN Service, pointing to iAP IDN Initiate Root V1.0, make it active and Service Provider Type=paymentgateway (same as on UAT) and save
+    c. On the iAP IDN Initiate Root V1.0 event - ensure service points to the above IDN service provider
+  2. Listner
+    a. Export listner TxOther Request ServiceQuery Rest Listener 501
+    b. Import the exported listener and rename to TxPaybill IDN Listener with context /request/idn/ and port 10030
+    b. Assign it the txpaybill 501 server, Private Pool Threads=1024,Start Event Timeout Handover Event=iAP Generic Overflow v1.0,Total Event Timeout (s)=3
+    c. Under Static Settings tab point Event ID to fire to event iAP IDN Initiate Root V1.0
+    d. Save
+    e. Repat the above steps for all 14 servers
+
+                                                           
